@@ -1648,7 +1648,7 @@ label_A9B::
     push af
     ld   a, $0F
     call SwitchBank
-    call label_2321
+    call HandleDialog
     jp   RestoreStackedBankAndReturn
 
 label_AA7::
@@ -2567,7 +2567,7 @@ returnFromGameplayHandler::
     call SwitchBank
 
 label_101F::
-    call label_2321
+    call HandleDialog
     ldh  a, [hIsGBC]
     and  a
     ret  z
@@ -5505,8 +5505,7 @@ label_22FE::
     ld   [MBC3SelectBank], a
     jp   $5570
 
-; Unknown procedure
-label_2321::
+HandleDialog::
     ; If DialogState == 0, don't do anything.
     ld   a, [wDialogState]
     and  a
@@ -5528,48 +5527,36 @@ label_2321::
     ld   a, [wCharacterPositionHi]
     and  a
     ld   a, [wCharacterPosition]
-    jr   nz, label_2341
+    jr   nz, .over100
     cp   $20
-    jr   c, label_2345
-
-label_2341::
+    jr   c, .writedialogboxposition
+.over100
     and  $0F
     or   $10
+.writedialogboxposition
+    ld   [wDialogBoxPosition], a
 
-label_2345::
-    ld   [$C171], a
-    ld   a, e
+    ld   a, e ; dialog state
     and  $7F
     dec  a
     JP_TABLE
-    ; Code below is actually data for the jump table
-    ld   l, e
-    inc  hl
-    or   b
-    inc  hl
-    or   b
-    inc  hl
-    or   b
-    inc  hl
-    ld   a, l
-    inc  h
-    or   a
-    inc  h
-    call $2924
-    dec  h
-    sub  a, l
-    ld   h, $14
-    daa
-    ld   l, b
-    daa
-    adc  a, d
-    inc  h
-    sub  a, e
-    daa
-    xor  a
-    inc  h
-    or   c
-    inc  hl
+    dw StateDialogOpening    ; DIALOG_OPENING_1
+    dw StateDialogOpening2   ; DIALOG_OPENING_2
+    dw StateDialogOpening2   ; DIALOG_OPENING_3
+    dw StateDialogOpening2   ; DIALOG_OPENING_4
+    dw StateDialogOpening5   ; DIALOG_OPENING_5
+    dw StateDialogLetterIn1  ; DIALOG_LETTER_IN_1
+    dw StateDialogLetterIn2  ; DIALOG_LETTER_IN_2
+    dw StateDialogLetterIn3  ; DIALOG_LETTER_IN_3
+    dw StateDialogBreak      ; DIALOG_BREAK
+    dw StateDialogScrolling1 ; DIALOG_SCROLLING_1
+    dw StateDialogScrolling2 ; DIALOG_SCROLLING_2
+    dw StateDialogEnd        ; DIALOG_END
+    dw StateDialogChoice     ; DIALOG_CHOICE
+    dw StateDialogClosing1   ; DIALOG_CLOSING_1
+    dw StateDialogClosing2   ; DIALOG_CLOSING_2
+
+StateDialogOpening::
     ld   a, $14
     ld   [MBC3SelectBank], a
     jp   $5449
@@ -5608,8 +5595,12 @@ label_2385::
     ld   [wDialogState], a
     ret
 
-data_23B0::
-    db   $C9, $AF, $EA, $9F, $C1, $3E, $18, $EA, $34, $C1, $F0, $FE, $A7, $C8, $FA, $95
+StateDialogOpening2::
+    ret
+
+; this is no data...
+StateDialogClosing2::
+    db   $AF, $EA, $9F, $C1, $3E, $18, $EA, $34, $C1, $F0, $FE, $A7, $C8, $FA, $95
     db   $DB, $FE, $B, $C0, $FA, $CC, $C3, $FE, 8, $D8, $3E, $21, $EA, 0, $21, $C3
 
 data_23D0::
@@ -5739,6 +5730,8 @@ label_2475::
     cp   $02
     jr   nz, label_2444
     ret
+
+StateDialogOpening5:
     ld   a, $1C
     ld   [MBC3SelectBank], a
     jp   $4A2C
@@ -5748,8 +5741,7 @@ IncrementDialogState::
     inc  [hl]
     ret
 
-; Unused code
-ConditionallyUpdateDialogState::
+StateDialogEnd::
     ; If $C1AB == 0...
     ld   a, [$C1AB]
     and  a
@@ -5786,53 +5778,55 @@ UpdateDialogState::
 UpdateDialogState_return:
     ret
 
-label_24AF::
+StateDialogClosing1::
     ld   a, $1C
     ld   [MBC3SelectBank], a
     jp   $4AA8
+
+StateDialogLetterIn1:
     ld   a, $1C
     ld   [MBC3SelectBank], a
     ld   a, [wDialogScrollDelay]
     and  a
-    jr   z, label_24C7
+    jr   z, .delayover
     dec  a
     ld   [wDialogScrollDelay], a
     ret
-
-label_24C7::
+.delayover
     call label_49F1
     jp   IncrementDialogState
+
+StateDialogLetterIn2:
     ld   a, $1C
     ld   [MBC3SelectBank], a
     ld   a, [wDialogState]
     ld   c, a
-    ld   a, [$C171]
+    ld   a, [wDialogBoxPosition]
     bit  7, c
-    jr   z, label_24DF
+    jr   z, .label_24DF
     add  a, $20
-
-label_24DF::
-    ld   c, a
+.label_24DF
+    ld   c, a ; position
     ld   b, $00
     ld   e, $01
     ld   d, $00
     ld   a, [$C12E]
-    ld   hl, $45C1
+    ld   hl, $45C1 ; high vram pointers
     add  hl, bc
     add  a, [hl]
-    ld   hl, $D600
+    ld   hl, wRequests
     add  hl, de
-    ldi  [hl], a
+    ldi  [hl], a  ; request high address
     ld   [$C175], a
     push hl
-    ld   hl, $4601
+    ld   hl, $4601 ; low vram pointers
     add  hl, bc
     ld   a, [hl]
     and  $E0
     add  a, $20
     ld   e, a
     ld   a, [$C12F]
-    add  a, [hl]
+    add  a, [hl] 
     ld   d, a
     cp   e
     jr   c, label_250D
@@ -5844,9 +5838,9 @@ label_250D::
     ld   a, d
     ld   [$C176], a
     pop  hl
-    ldi  [hl], a
+    ldi  [hl], a ; request low address
     xor  a
-    ldi  [hl], a
+    ldi  [hl], a ; request size
     push hl
     ld   a, [wCharacterPosition]
     and  $1F
@@ -5855,10 +5849,11 @@ label_250D::
     add  hl, bc
     ld   a, [hl]
     pop  hl
-    ldi  [hl], a
+    ldi  [hl], a ; request byte
     call IncrementDialogState
     jp   DrawNextCharacter
 
+StateDialogLetterIn3::
 DrawNextCharacter::
     ld   a, BANK(DialoguePointerTable)
     ld   [MBC3SelectBank], a
@@ -5871,7 +5866,7 @@ DrawNextCharacter::
     ld   hl, $4581
     add  hl, bc
     ld   a, [hl]
-    ld   hl, $D600
+    ld   hl, wRequests
     add  hl, de
     ldi  [hl], a ; high byte of tile destination address
     push hl
@@ -5948,8 +5943,8 @@ DrawNextCharacter::
     ld   [wDialogState], a
     ret
 
-.ThiefString: ; data_25B8::
-    db $55, $49, $4A, $46, $47
+.ThiefString:
+    db "T"+1, "H"+1, "I"+1, "E"+1, "F"+1
 
 .not_end
     cp   " "
@@ -6018,30 +6013,34 @@ DrawNextCharacter::
     sla  e
     rl   d
     call ReloadSavedBank
-    ld   hl, $5000
+    ld   hl, FontGfx
     add  hl, de
     ld   c, l
     ld   b, h
     pop  hl
     ld   e, $10
-
-label_2633::
+    ; copy character tile data to wRequestData
+.copytileloop
     ld   a, [bc]
     ldi  [hl], a
     inc  bc
     dec  e
-    jr   nz, label_2633
+    jr   nz, .copytileloop
     ld   [hl], $00
+    
     push hl
-    ld   a, $1C
+    
+    ; stubbed out bit of code accessing a table for (han)dakutens
+    ld   a, $1C ; BANK(DakutenTable)
     ld   [MBC3SelectBank], a
-    ldh  a, [$FFD8]
+    ldh  a, [$FFD8] ; current character
     ld   e, a
     ld   d, $00
     xor  a
     pop  hl
     and  a
-    jr   z, label_2663
+    jr   z, .no_dakuten
+    
     ld   e, a
     ld   a, [$C175]
     ldi  [hl], a
@@ -6050,16 +6049,15 @@ label_2633::
     ldi  [hl], a
     ld   a, $00
     ldi  [hl], a
-    ld   a, $C9
+    ld   a, $C9 ; handakuten
     rr   e
-    jr   c, label_2660
-    dec  a
-
-label_2660::
+    jr   c, .got_dakuten_tile
+    dec  a ; dakuten ($C8)
+.got_dakuten_tile
     ldi  [hl], a
     ld   [hl], $00
 
-label_2663::
+.no_dakuten
     ld   a, [wCharacterPosition]
     add  a, $01
     ld   [wCharacterPosition], a
@@ -6068,20 +6066,19 @@ label_2663::
     ld   [wCharacterPositionHi], a
     xor  a
     ld   [$C1CC], a
-    ld   a, [$C171]
+    ld   a, [wDialogBoxPosition]
     cp   $1F
-    jr   z, label_268E
-
-label_267E::
+    jr   z, .end_of_dialog_box
+.proceed
     ld   a, [wDialogState]
     and  $F0
-    or   $06
+    or   DIALOG_LETTER_IN_1
     ld   [wDialogState], a
     ld   a, $00
     ld   [wDialogScrollDelay], a
     ret
 
-label_268E::
+.end_of_dialog_box
     jp   IncrementDialogState
 
 data_2691::
@@ -6090,7 +6087,7 @@ data_2691::
 data_2693::
     db $98, $99
 
-label_2695::
+StateDialogBreak::
     ld   a, [wCharacterPosition]
     and  $1F
     jr   nz, label_26E1
@@ -6155,6 +6152,7 @@ label_26EB::
     ld   [$D605], a
     call IncrementDialogState
 
+StateDialogScrolling1::
 label_2714::
     ret
 
@@ -6224,6 +6222,8 @@ label_275D::
     ld   a, $08  ; Pause the scrolling for 8 frames
     ld   [wDialogScrollDelay], a
     jp   IncrementDialogState
+
+StateDialogScrolling2:
     ret
 
 data_2769::
@@ -6248,12 +6248,14 @@ label_2777::
     ld   b, a
     ld   hl, data_2769
     call label_2731
-    jp   label_267E
+    jp   DrawNextCharacter.proceed
 
 label_278B::
     ld   a, $02
     ld   [$C177], a
     jp   UpdateDialogState
+
+StateDialogChoice::
     ldh  a, [$FFCC]
     bit  4, a
     jp   nz, label_27B7

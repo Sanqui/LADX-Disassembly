@@ -138,7 +138,8 @@ wC16D: ds 1
 wC16E: ds 1
 wC16F: ds 1
 wCharacterPosition: ds 1
-wC171: ds 1
+wDialogBoxPosition:
+    ds 1
 
 wDialogScrollDelay:: ; C172
   ds 1
@@ -417,7 +418,22 @@ wDidStealItem:: ; D47E
 
 ; Unlabeled
 wD47F equ $D47F
-  ds $27D
+  ds $D600 - $D47F
+
+wRequests::
+; consits of structures containing data
+; to be copied to vram during blanking times
+  ds 1
+
+wRequest::
+wRequestDestination:
+  ds 2 ; big endian!
+wRequestLength:
+  ds 1
+wRequestData:
+  ; any amount may be requested
+
+ds $d6fc - $d604
 
 wEnginePaused:: ; D6FC
   ds 1
