@@ -4,6 +4,20 @@
 section "RST 0x0000", rom0 [$0000]
     jp   TableJump
 
+section "RST 0x0008", rom0 [$0008]
+    push af
+    ld a, [wCurrentBank]
+    ld [wHackOldBank], a
+    ld a, BANK(HackPredef)
+    ld [$2000], a
+    pop af
+    call HackPredef
+    push af
+    ld a, [wHackOldBank]
+    ld [wHackOldBank], a
+    pop af
+    ret
+
 section "Interrupt VBlank", rom0 [$0040]
     jp   InterruptVBlank
 

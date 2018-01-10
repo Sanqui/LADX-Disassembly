@@ -14,6 +14,8 @@ include "data/ascii_to_tile.asm"
 include "code/interrupts.asm"
 include "code/header.asm"
 
+include "hack/hack.asm"
+
 ; Sources
 section "Main", rom0[$0150]
 include "code/bank0.asm"
@@ -172,5 +174,3 @@ incbin "gfx/photos/photo_dizzy_link.2bpp"
 
 ; Unused banks; make blank sections so they are filled with $00 instead of $ff to match
 ; the rom
-section "bank62",romx[$4000],bank[$3E]
-section "bank63",romx[$4000],bank[$3F]
